@@ -4,7 +4,7 @@ import pandas as pd
 import io
 from datetime import datetime
 
-st.set_page_config(page_title="AI Assessor – Data Analyst L4", page_icon="📊", layout="wide")
+st.set_page_config(page_title="AI Assessor – Data Analyst L4", page_icon="", layout="wide")
 
 # ---------- Theme & CSS ----------
 st.markdown(
