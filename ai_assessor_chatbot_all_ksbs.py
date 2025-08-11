@@ -1,28 +1,118 @@
-
+# ai_assessor_chatbot_all_ksbs.py
 import streamlit as st
+import random
+import pandas as pd
+import io
+import openai
 
-ksb_questions = {'K1: Legislation & Safe Use of Data': ['Can you explain at least one piece of legislation relevant to your role (e.g. GDPR, DPA) and its key principles?', 'How do you follow this legislation in your daily work? Provide an example.', 'Why is it important to follow this legislation when handling data?', '(Distinction) What are the risks or consequences of not following this legislation?'], 'K2: Organisational Data Policies': ['What internal data policies or procedures do you follow in your organisation?', 'Where can you access these policies, and how do they affect your day-to-day work?', '(Distinction) What are the potential consequences of not following internal policies?'], 'K5: Structured vs Unstructured Data': ['Can you explain the difference between structured and unstructured data?', 'Which type of data do you work with most often?', 'How does the structure of the data impact your analysis approach?'], 'K6: Data Structures & Database Design': ["Describe three different data structures you've worked with (e.g. tables, arrays, records).", 'What kind of database architecture do you use in your role (e.g. relational, cloud)?', 'How is your database implemented and maintained?', 'How are access rights and data security managed in your database system?'], 'K7: User Experience & Domain Context': ['Why is user experience important in data analytics?', 'Describe how you tailor your insights and communication to suit your audience.', 'Explain the principles of domain context and how they impact your work.'], 'K10: Combining Data from Different Sources': ['What methods do you use to combine data from multiple sources?', 'How has combining data helped improve analysis or decision-making in your work?', 'What are the risks of combining data from different sources?'], 'K13: Principles of Statistics': ['What statistical methods do you use in your work, and why?', 'Can you explain the difference between descriptive and inferential statistics?', 'How have you applied statistical analysis to extract insight from data?'], 'K14: Descriptive, Predictive, Prescriptive Analytics': ['Explain the differences between descriptive, predictive, and prescriptive analytics.', 'How have you applied each of these in your role?', 'What are the risks and benefits of predictive analytics?'], 'K15: Ethical Aspects of Data Use': ['What ethical considerations are important when collecting data in your role?', 'How do you ensure ethical use of data (e.g. transparency, minimisation, anonymisation)?', 'Why is ethics in data handling important to your organisation?'], 'S5: Impact of User Experience': ['How have you adapted your analysis communication to improve user experience for stakeholders?', 'Give an example where stakeholder feedback influenced your work.', 'What principles did you apply to ensure domain context was considered?'], 'S9: Data Architecture Requirements': ["What tools and techniques do you use for working with your organisation's data architecture?", 'How do you ensure data security and compliance with internal standards during your work?'], 'S10: Apply Statistical Methods': ['What statistical methods have you applied in your role?', 'For each method, what insight did it provide, and how did it inform decision-making?'], 'S11: Predictive Analytics': ['Describe a time when you carried out predictive analytics in your role.', 'What process did you follow, and what did you learn from the analysis?', 'What are the risks and benefits of using predictive analytics in your work?'], 'S13: Analytical Techniques': ['Describe three analytical techniques you’ve used (e.g. data mining, forecasting, regression).', 'What insight did each technique help uncover in your work?', 'How did these insights influence business decisions or improvements?'], 'S14: Data Visualisation': ['Give three examples of how you tailored visualisations for different audiences (e.g. dashboards, reports, infographics).', 'How do your visualisations improve understanding for stakeholders?', 'What principles of user experience did you consider in your presentations?'], 'B1: Professional & Secure Environment': ['How do you contribute to a secure and productive working environment?', 'Which legislation do you follow, and how do you apply it in your role?', 'What are the risks of failing to follow data protection legislation?'], 'B2: Initiative in Problem Solving': ['Describe a situation where you had to adapt quickly to an unexpected change in a project.', 'How did you take initiative to address the issue and what was the outcome?'], 'B5: Root Cause Analysis': ['Describe a problem you encountered and how you found the root cause.', "What actions did you take to ensure the issue wouldn't recur?"], 'B6: Resilience & Learning from Failure': ['Describe a challenge you faced when something didn’t go as planned.', 'What did you learn from it, and how will it help you in the future?'], 'B7: Adapting to Change': ["Give an example of how you've adapted to a changing project scope or stakeholder feedback.", 'What actions did you take and how did they support the project’s success?']}
+st.set_page_config(page_title="AI Assessor – Data Analyst L4", page_icon="📊", layout="wide")
 
-st.title("📊 AI Assessor – Data Analyst L4 Apprenticeship")
-st.markdown("This chatbot simulates an assessor asking questions based on the Knowledge, Skills and Behaviours (KSBs) from the Portfolio & Evidence Guide.")
+openai.api_key = st.secrets.get("OPENAI_API_KEY", None)
 
-selected_ksb = st.selectbox("Choose a KSB to be assessed on:", list(ksb_questions.keys()))
-questions = ksb_questions[selected_ksb]
+st.markdown(
+    """
+    <style>
+        body { background-color: #000000; color: #FFFFFF; }
+        .stButton>button { background-color: #FFD500; color: #000000; font-weight: 600; border-radius: 8px; }
+        textarea { border: 2px solid #FFD500 !important; border-radius: 8px !important; color: #000; background: #FFF9E6; }
+        .question-box { background-color: #0f0f0f; padding: 12px; border-radius: 10px; border: 2px solid #FFD500; font-weight:700; color: #FFD500; }
+        .small-muted { color:#bfbfbf; font-size:0.9em; }
+    </style>
+    """, unsafe_allow_html=True
+)
 
-if "step" not in st.session_state:
-    st.session_state.step = 0
+col1, col2 = st.columns([1, 9])
+with col1:
+    st.image("logo_placeholder.png", width=120)
+with col2:
+    st.title("📊 AI Assessor — Data Analyst (Level 4)")
+    st.markdown("A conversational assessor that asks work-based questions against the apprenticeship KSBs **and** answers learner questions.")
+    st.markdown("<div class='small-muted'>Assessment Mode → asks KSB questions. Help Mode → answers learner questions via OpenAI.</div>", unsafe_allow_html=True)
 
-if st.session_state.step < len(questions):
-    current_question = questions[st.session_state.step]
-    st.markdown(f"**Q{st.session_state.step + 1}: {current_question}**")
-    user_response = st.text_area("Your answer:", key=f"response_{st.session_state.step}")
+ksb_bank = {
+    "Knowledge": {
+        "K1: Legislation & Safe Use of Data": [
+            "Which laws influence how you handle data?",
+            "Describe a situation where you applied that rule.",
+            "Why is it important to follow that legislation?",
+            "What could happen if these rules are ignored?"
+        ]
+    },
+    "Skills": {
+        "S5: Impact of UX & Domain Context": [
+            "Describe how user experience influenced an analysis you produced.",
+            "Share an example where you adjusted communication to meet stakeholder needs.",
+            "Why does understanding the domain context improve your analysis?"
+        ]
+    },
+    "Behaviours": {
+        "B2: Initiative & Resourcefulness": [
+            "Describe a time you took initiative to solve a problem.",
+            "What was the outcome and what did you learn from it?",
+            "How did your actions benefit the project or team?"
+        ]
+    }
+}
 
-    if st.button("Next"):
-        if user_response.strip():
-            st.session_state.step += 1
-        else:
-            st.warning("Please enter a response before proceeding.")
-else:
-    st.success("You've completed this KSB assessment!")
-    if st.button("Restart"):
-        st.session_state.step = 0
+mode = st.sidebar.radio("Select Mode", ["Assessment Mode", "Help Mode"])
+
+if mode == "Assessment Mode":
+    group = st.sidebar.selectbox("Select section", list(ksb_bank.keys()))
+    ksb_choice = st.sidebar.selectbox("Select KSB", list(ksb_bank[group].keys()))
+    ksb_key = f"{group}||{ksb_choice}"
+
+    if f"qs::{ksb_key}" not in st.session_state:
+        questions = ksb_bank[group][ksb_choice][:]
+        random.shuffle(questions)
+        st.session_state[f"qs::{ksb_key}"] = questions
+        st.session_state[f"resp::{ksb_key}"] = [""] * len(questions)
+        st.session_state[f"step::{ksb_key}"] = 0
+
+    questions = st.session_state[f"qs::{ksb_key}"]
+    responses = st.session_state[f"resp::{ksb_key}"]
+    step = st.session_state[f"step::{ksb_key}"]
+
+    if step < len(questions):
+        q_text = questions[step]
+        st.markdown(f"<div class='question-box'>Q{step + 1}: {q_text}</div>", unsafe_allow_html=True)
+        response = st.text_area("Your answer:", value=responses[step], height=200)
+        col_prev, col_next = st.columns(2)
+        if col_prev.button("Previous") and step > 0:
+            st.session_state[f"step::{ksb_key}"] = step - 1
+        if col_next.button("Next"):
+            if response.strip():
+                st.session_state[f"resp::{ksb_key}"][step] = response
+                st.session_state[f"step::{ksb_key}"] = step + 1
+            else:
+                st.warning("Please enter a response before moving on.")
+    else:
+        st.success("✅ You have completed this KSB assessment!")
+        summary = pd.DataFrame({
+            "KSB": [ksb_choice]*len(questions),
+            "Question": questions,
+            "Response": responses
+        })
+        st.dataframe(summary)
+        csv_buffer = io.StringIO()
+        summary.to_csv(csv_buffer, index=False)
+        st.download_button("Download responses", data=csv_buffer.getvalue(), file_name=f"{ksb_choice}_responses.csv")
+
+elif mode == "Help Mode":
+    st.subheader("💬 Ask a question about data analytics concepts")
+    if openai.api_key is None:
+        st.error("OpenAI API key not set. Please add it to Streamlit secrets.")
+    else:
+        learner_q = st.text_input("Type your question:")
+        if st.button("Get Answer") and learner_q.strip():
+            with st.spinner("Thinking..."):
+                try:
+                    response = openai.ChatCompletion.create(
+                        model="gpt-4o-mini",
+                        messages=[
+                            {"role": "system", "content": "You are a friendly data analytics tutor who explains clearly without giving portfolio answers."},
+                            {"role": "user", "content": learner_q}
+                        ]
+                    )
+                    st.write(response.choices[0].message["content"])
+                except Exception as e:
+                    st.error(f"Error: {e}")
