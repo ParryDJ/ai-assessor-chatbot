@@ -23,7 +23,7 @@ st.markdown(
 
 col1, col2 = st.columns([1, 9])
 with col1:
-    st.image("logo_placeholder.png", width=120)
+    st.image("https://drive.google.com/open?id=1F_wuHprzxMi8B9lSEm1gqApJUC083IX9&usp=drive_fs", width=120)
 with col2:
     st.title("📊 AI Assessor — Data Analyst (Level 4)")
     st.markdown("A conversational assessor that asks work-based questions against the apprenticeship KSBs **and** answers learner questions.")
