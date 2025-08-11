@@ -1,135 +1,122 @@
-# ai_assessor_chatbot_all_ksbs.py
-import streamlit as st
-import random
-import pandas as pd
-import io
+import os
 import openai
 
-st.set_page_config(page_title="AI Assessor – Data Analyst L4", page_icon="📊", layout="wide")
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
-import openai
+# The core KSB knowledge base (simplified for demo, use full text in practice)
+KSB_KNOWLEDGE = """
+K1: current relevant legislation and its application to safe use of data - DPA, GDPR, importance of compliance.
+K2: organisational data policies and procedures - internal policies on data privacy, protection, retention.
+K5: differences between structured and unstructured data.
+K6: fundamentals of data structures and database design - files, lists, arrays, relational DBs.
+K7: principles of user experience and domain context in data analytics.
+K10: approaches to combining data from different sources, benefits, and risks.
+K13: principles of statistics for data analysis - descriptive and inferential stats.
+K14: principles of descriptive, predictive, and prescriptive analytics - definitions, applications, risks.
+K15: ethical aspects in data collation and use - consent, bias, transparency, anonymisation.
+S5: impact of user experience on data analysis communication.
+S9: organisational architecture requirements in data handling.
+S10: applying statistics in data tasks.
+S11: applying predictive analytics - time series, regression, risks and benefits.
+S13: analytical techniques - data mining, time series forecasting, modelling.
+S14: presenting data analysis in visual formats - dashboards, reports, infographics.
+B1-B7: professional working environment, initiative, problem-solving, resilience, adaptability.
+"""
 
-# optional; defaults to `os.environ['OPENAI_API_KEY']`
-openai.api_key = '...'
+# Template prompt for asking questions based on KSB topic
+def generate_question_prompt(topic_code):
+    prompt = f"""
+You are an expert assessor for the Level 4 Data Analyst Apprenticeship.
+Using the KSB knowledge provided below, generate a challenging but fair question for the learner to answer about {topic_code}.
+KSB summary:
+{KSB_KNOWLEDGE}
 
-# all client options can be configured just like the `OpenAI` instantiation counterpart
-openai.base_url = "https://..."
-openai.default_headers = {"x-foo": "true"}
+Question:
+"""
+    return prompt.strip()
 
-completion = openai.chat.completions.create(
-    model="gpt-4",
-    messages=[
-        {
-            "role": "user",
-            "content": "How do I output all files in a directory using Python?",
-        },
-    ],
-)
-print(completion.choices[0].message.content)
-st.markdown(
-    """
-    <style>
-        body { background-color: #000000; color: #FFFFFF; }
-        .stButton>button { background-color: #FFD500; color: #000000; font-weight: 600; border-radius: 8px; }
-        textarea { border: 2px solid #FFD500 !important; border-radius: 8px !important; color: #000; background: #FFF9E6; }
-        .question-box { background-color: #0f0f0f; padding: 12px; border-radius: 10px; border: 2px solid #FFD500; font-weight:700; color: #FFD500; }
-        .small-muted { color:#bfbfbf; font-size:0.9em; }
-    </style>
-    """, unsafe_allow_html=True
-)
+# Function to ask the bot to generate a question about a specific KSB topic
+def ask_question(topic_code):
+    prompt = generate_question_prompt(topic_code)
+    response = openai.ChatCompletion.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "You are a helpful apprenticeship assessor AI."},
+            {"role": "user", "content": prompt}
+        ],
+        max_tokens=150,
+        temperature=0.7,
+    )
+    return response.choices[0].message.content.strip()
 
-col1, col2 = st.columns([1, 9])
-with col1:
-    st.image("https://drive.google.com/open?id=1F_wuHprzxMi8B9lSEm1gqApJUC083IX9&usp=drive_fs", width=120)
-with col2:
-    st.title("📊 AI Assessor — Data Analyst (Level 4)")
-    st.markdown("A conversational assessor that asks work-based questions against the apprenticeship KSBs **and** answers learner questions.")
-    st.markdown("<div class='small-muted'>Assessment Mode → asks KSB questions. Help Mode → answers learner questions via OpenAI.</div>", unsafe_allow_html=True)
+# Template prompt for answering learner's help questions about the KSBs
+def generate_help_prompt(user_question):
+    prompt = f"""
+You are an expert AI tutor specialized in the Level 4 Data Analyst Apprenticeship, focusing on the KSBs (Knowledge, Skills, Behaviours) for the Portfolio & Evidence Guide.
+Answer the learner's question below as clearly and informatively as possible, referencing the KSBs knowledge base when relevant.
 
-ksb_bank = {
-    "Knowledge": {
-        "K1: Legislation & Safe Use of Data": [
-            "Which laws influence how you handle data?",
-            "Describe a situation where you applied that rule.",
-            "Why is it important to follow that legislation?",
-            "What could happen if these rules are ignored?"
-        ]
-    },
-    "Skills": {
-        "S5: Impact of UX & Domain Context": [
-            "Describe how user experience influenced an analysis you produced.",
-            "Share an example where you adjusted communication to meet stakeholder needs.",
-            "Why does understanding the domain context improve your analysis?"
-        ]
-    },
-    "Behaviours": {
-        "B2: Initiative & Resourcefulness": [
-            "Describe a time you took initiative to solve a problem.",
-            "What was the outcome and what did you learn from it?",
-            "How did your actions benefit the project or team?"
-        ]
-    }
-}
+KSB summary:
+{KSB_KNOWLEDGE}
 
-mode = st.sidebar.radio("Select Mode", ["Assessment Mode", "Help Mode"])
+Learner question:
+{user_question}
 
-if mode == "Assessment Mode":
-    group = st.sidebar.selectbox("Select section", list(ksb_bank.keys()))
-    ksb_choice = st.sidebar.selectbox("Select KSB", list(ksb_bank[group].keys()))
-    ksb_key = f"{group}||{ksb_choice}"
+Answer:
+"""
+    return prompt.strip()
 
-    if f"qs::{ksb_key}" not in st.session_state:
-        questions = ksb_bank[group][ksb_choice][:]
-        random.shuffle(questions)
-        st.session_state[f"qs::{ksb_key}"] = questions
-        st.session_state[f"resp::{ksb_key}"] = [""] * len(questions)
-        st.session_state[f"step::{ksb_key}"] = 0
+# Function to answer freeform learner questions about the KSBs
+def help_center_answer(user_question):
+    prompt = generate_help_prompt(user_question)
+    response = openai.ChatCompletion.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "You are a helpful apprenticeship help center AI."},
+            {"role": "user", "content": prompt}
+        ],
+        max_tokens=300,
+        temperature=0.5,
+    )
+    return response.choices[0].message.content.strip()
 
-    questions = st.session_state[f"qs::{ksb_key}"]
-    responses = st.session_state[f"resp::{ksb_key}"]
-    step = st.session_state[f"step::{ksb_key}"]
+# Simple CLI chatbot example
+def chatbot():
+    print("Welcome to the Data Academy L4 Apprenticeship AI Chatbot!")
+    print("Type 'question <KSB_code>' to get a question (e.g. question K1).")
+    print("Type 'help <your question>' to ask anything about the KSBs.")
+    print("Type 'exit' to quit.")
 
-    if step < len(questions):
-        q_text = questions[step]
-        st.markdown(f"<div class='question-box'>Q{step + 1}: {q_text}</div>", unsafe_allow_html=True)
-        response = st.text_area("Your answer:", value=responses[step], height=200)
-        col_prev, col_next = st.columns(2)
-        if col_prev.button("Previous") and step > 0:
-            st.session_state[f"step::{ksb_key}"] = step - 1
-        if col_next.button("Next"):
-            if response.strip():
-                st.session_state[f"resp::{ksb_key}"][step] = response
-                st.session_state[f"step::{ksb_key}"] = step + 1
-            else:
-                st.warning("Please enter a response before moving on.")
-    else:
-        st.success("✅ You have completed this KSB assessment!")
-        summary = pd.DataFrame({
-            "KSB": [ksb_choice]*len(questions),
-            "Question": questions,
-            "Response": responses
-        })
-        st.dataframe(summary)
-        csv_buffer = io.StringIO()
-        summary.to_csv(csv_buffer, index=False)
-        st.download_button("Download responses", data=csv_buffer.getvalue(), file_name=f"{ksb_choice}_responses.csv")
-
-elif mode == "Help Mode":
-    st.subheader("💬 Ask a question about data analytics concepts")
-    if openai.api_key is None:
-        st.error("OpenAI API key not set. Please add it to Streamlit secrets.")
-    else:
-        learner_q = st.text_input("Type your question:")
-        if st.button("Get Answer") and learner_q.strip():
-            with st.spinner("Thinking..."):
+    while True:
+        user_input = input("\nYou: ").strip()
+        if user_input.lower() == 'exit':
+            print("Goodbye!")
+            break
+        elif user_input.lower().startswith("question"):
+            parts = user_input.split(maxsplit=1)
+            if len(parts) == 2:
+                ksb_code = parts[1].strip().upper()
+                print(f"\nAI Question on {ksb_code}:")
                 try:
-                    response = openai.ChatCompletion.create(
-                        model="gpt-4o-mini",
-                        messages=[
-                            {"role": "system", "content": "You are a friendly data analytics tutor who explains clearly without giving portfolio answers."},
-                            {"role": "user", "content": learner_q}
-                        ]
-                    )
-                    st.write(response.choices[0].message["content"])
+                    question = ask_question(ksb_code)
+                    print(question)
                 except Exception as e:
-                    st.error(f"Error: {e}")
+                    print(f"Error generating question: {e}")
+            else:
+                print("Please specify a KSB code after 'question'.")
+        elif user_input.lower().startswith("help"):
+            parts = user_input.split(maxsplit=1)
+            if len(parts) == 2:
+                learner_question = parts[1].strip()
+                print("\nAI Help Center Answer:")
+                try:
+                    answer = help_center_answer(learner_question)
+                    print(answer)
+                except Exception as e:
+                    print(f"Error generating answer: {e}")
+            else:
+                print("Please type your question after 'help'.")
+        else:
+            print("Unknown command. Use 'question <KSB_code>' or 'help <your question>' or 'exit'.")
+
+if __name__ == "__main__":
+    chatbot()
