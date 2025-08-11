@@ -23,7 +23,7 @@ st.markdown(
 )
 
 # ---------- Header ----------
-logo_url = "https://docs.google.com/document/d/1F_9oE6AC8PgpnJly_bBX1FMXkNE4RBsE/edit"
+logo_url = "https://docs.google.com/document/d/1F_9oE6AC8PgpnJly_bBX1FMXkNE4RBsE/edit?usp=sharing&ouid=105843884471201299870&rtpof=true&sd=true"
 col1, col2 = st.columns([1, 9])
 with col1:
     try:
