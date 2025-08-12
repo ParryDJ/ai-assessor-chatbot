@@ -27,7 +27,7 @@ else:
     st.warning("Logo not found. Please ensure Picture1.png is in the same folder.")
 
 st.title("Data Analyst (Level 4)")
-st.markdown("Black & Yellow theme. Modes: **Assessment**, **Help**, and **Portfolio Guidance**.")
+st.markdown("Modes: **Assessment**, **Help**, and **Portfolio Guidance**.")
 
 openai.api_key = st.secrets.get("OPENAI_API_KEY", None)
 
