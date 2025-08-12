@@ -6,7 +6,7 @@ from datetime import datetime
 import openai
 import os
 
-st.set_page_config(page_title="Decoded Data Analyst L4 Bot", page_icon="", layout="wide")
+st.set_page_config(page_title="Data Analyst L4 Bot", page_icon="", layout="wide")
 
 # ---------- THEME ----------
 st.markdown("""
@@ -26,7 +26,7 @@ if os.path.exists(logo_path):
 else:
     st.warning("Logo not found. Please ensure Picture1.png is in the same folder.")
 
-st.title("Decoded — Data Analyst (Level 4)")
+st.title("Data Analyst (Level 4)")
 st.markdown("Black & Yellow theme. Modes: **Assessment**, **Help**, and **Portfolio Guidance**.")
 
 openai.api_key = st.secrets.get("OPENAI_API_KEY", None)
