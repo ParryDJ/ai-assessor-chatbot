@@ -29,7 +29,18 @@ else:
 st.title("Data Analyst (Level 4)")
 st.markdown("**Assessment**, **Help**, and **Portfolio Guidance**.")
 
-openai.api_key = st.secrets.get("OPENAI_API_KEY", None)
+from openai import OpenAI
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+
+def ask_openai(system_prompt, user_prompt):
+    response = client.chat.completions.create(
+        model="gpt-4o",  # Or "gpt-4o-mini" for faster & cheaper
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ]
+    )
+    return response.choices[0].message.content
 
 # ---------- KSB QUESTION BANK (Full) ----------
 ksb_bank = {
@@ -206,43 +217,22 @@ if mode == "Assessment Mode":
         st.download_button("Download responses", data=csv_buffer.getvalue(), file_name=f"{ksb_choice}_responses.csv")
 
 elif mode == "Help Mode":
-    st.subheader("💬 Ask a question about data analytics concepts")
-    if not openai.api_key:
-        st.error("OpenAI API key not set in Streamlit secrets.")
-    else:
-        learner_q = st.text_input("Your question:")
-        if st.button("Get Answer") and learner_q.strip():
-            with st.spinner("Thinking..."):
-                try:
-                    response = openai.ChatCompletion.create(
-                        model="gpt-4o-mini",
-                        messages=[
-                            {"role": "system", "content": "You are a friendly data analytics tutor who explains concepts clearly."},
-                            {"role": "user", "content": learner_q}
-                        ]
-                    )
-                    st.write(response.choices[0].message["content"])
-                except Exception as e:
-                    st.error(f"Error: {e}")
+    user_q = st.text_input("Ask a question:")
+    if st.button("Ask"):
+        if user_q.strip():
+            answer = ask_openai(
+                "You are a helpful tutor for Data Analyst L4 apprentices.",
+                user_q
+            )
+            st.markdown(f"**Answer:** {answer}")
 
 elif mode == "Portfolio Guidance":
-    st.subheader("📁 Get guidance for your portfolio evidence")
-    if not openai.api_key:
-        st.error("OpenAI API key not set in Streamlit secrets.")
-    else:
-        ksb_help = st.selectbox("Select KSB for guidance", [f"{g} - {k}" for g in ksb_bank for k in ksb_bank[g]])
-        user_input = st.text_area("Add any context about your work:", height=150)
-        if st.button("Get Guidance"):
-            with st.spinner("Preparing guidance..."):
-                try:
-                    guidance_prompt = f"You are an apprenticeship assessor. Give guidance for the KSB: {ksb_help}. Do not provide the actual answer. Instead, explain what types of evidence, examples, and reflection a learner could include in their portfolio for this KSB. Learner context: {user_input}"
-                    response = openai.ChatCompletion.create(
-                        model="gpt-4o-mini",
-                        messages=[
-                            {"role": "system", "content": "You are a formal apprenticeship assessor giving portfolio evidence guidance only."},
-                            {"role": "user", "content": guidance_prompt}
-                        ]
-                    )
-                    st.write(response.choices[0].message["content"])
-                except Exception as e:
-                    st.error(f"Error: {e}")
+    user_q = st.text_input("Ask about portfolio evidence:")
+    if st.button("Get Guidance"):
+        if user_q.strip():
+            answer = ask_openai(
+                "You are an assessor giving guidance for Data Analyst L4 portfolio evidence. Do NOT write the answer for the learner, only explain what they should include.",
+                user_q
+            )
+            st.markdown(f"**Guidance:** {answer}")
+
